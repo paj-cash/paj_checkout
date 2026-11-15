@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+/* PAJ's palette, shared with paj_business_hub. */
+@theme {
+  --font-sans: var(--font-helvetica), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: var(--font-neighbor), var(--font-helvetica), sans-serif;
+
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dbe7ff;
+  --color-brand-200: #b6ceff;
+  --color-brand-400: #4d86fb;
+  --color-brand-500: #0856f8;
+  --color-brand-600: #0047d9;
+  --color-brand-700: #0039ad;
+
+  --color-ink: #110f0f;
+  --color-ink-soft: #413f3f;
+  --color-muted: #706f6f;
+  --color-faint: #a09f9f;
+  --color-line: #e7e7e7;
+  --color-surface: #f7f7f7;
+  --color-success: #00a653;
+  --color-success-50: #e8f7ef;
+  --color-warning: #b54708;
+  --color-warning-50: #fffaeb;
+  --color-danger: #d92d20;
+  --color-danger-50: #fef3f2;
+}
+
+html,
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
