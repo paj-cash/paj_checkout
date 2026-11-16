@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import { getCheckout, openAttempt } from "./api";
+import { getCheckout, openAddress, openAttempt } from "./api";
 import { API_URL } from "./config";
 import { isFinished } from "./screen";
-import type { CheckoutPayment, CheckoutView } from "./types";
+import type { CheckoutPayment, CheckoutView, DepositAddress } from "./types";
 
 /** How often to re-read the checkout while the live connection is down. */
 const POLL_MS = 5000;
@@ -62,7 +62,7 @@ export function useCheckout(token: string, initial: CheckoutView, now: number) {
     return () => clearInterval(id);
   }, [token, finished, live]);
 
-  /** Starts paying on `chain` and shows the payment straight away. */
+  /** SINGLE: starts paying on `chain` and shows the payment straight away. */
   const start = useCallback(
     async (chain: string): Promise<CheckoutPayment> => {
       const payment = await openAttempt(token, chain);
@@ -78,7 +78,23 @@ export function useCheckout(token: string, initial: CheckoutView, now: number) {
     [token],
   );
 
-  return { view, live, start };
+  /** RUNNING_TOTAL: gets the address on `chain` and shows it straight away. */
+  const address = useCallback(
+    async (chain: string): Promise<DepositAddress> => {
+      const opened = await openAddress(token, chain);
+      setView((current) => ({
+        ...current,
+        depositAddresses: [
+          ...current.depositAddresses.filter((a) => a.chain !== opened.chain),
+          opened,
+        ],
+      }));
+      return opened;
+    },
+    [token],
+  );
+
+  return { view, live, start, address };
 }
 
 /** Copies `text`, and says so for a moment. */

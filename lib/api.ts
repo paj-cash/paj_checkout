@@ -1,5 +1,5 @@
 import { API_URL } from "./config";
-import type { CheckoutPayment, CheckoutView } from "./types";
+import type { CheckoutPayment, CheckoutView, DepositAddress } from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -43,10 +43,21 @@ export const getCheckout = (token: string) =>
   request<CheckoutView>(checkoutPath(token));
 
 /**
- * Starts paying on `chain`, or hands back the payment already waiting there.
+ * SINGLE checkouts: starts paying on `chain`, or hands back the payment
+ * already waiting there.
  */
 export const openAttempt = (token: string, chain: string) =>
   request<CheckoutPayment>(`${checkoutPath(token)}/attempts`, {
+    method: "POST",
+    body: JSON.stringify({ chain }),
+  });
+
+/**
+ * RUNNING_TOTAL checkouts: the checkout's address on `chain`, the same one
+ * every time it is asked for.
+ */
+export const openAddress = (token: string, chain: string) =>
+  request<DepositAddress>(`${checkoutPath(token)}/addresses`, {
     method: "POST",
     body: JSON.stringify({ chain }),
   });

@@ -1,4 +1,4 @@
-import type { CheckoutPayment, CheckoutView } from "./types";
+import type { CheckoutPayment, CheckoutView, DepositAddress } from "./types";
 
 /**
  * How far short of `totalAmount` a deposit may fall and still settle. Matches
@@ -18,8 +18,12 @@ export type Screen =
   | { kind: "paying"; payment: CheckoutPayment; others: number }
   /** Pick a chain. `lapsed` when a payment window just ran out. */
   | { kind: "choose"; lapsed: boolean }
+  /** A running total: where to send, how much is left, what has arrived. */
+  | { kind: "deposit"; address: DepositAddress; others: number }
   | { kind: "cancelled" }
-  | { kind: "expired" };
+  | { kind: "expired" }
+  /** A running total that ran out with only part of it paid. */
+  | { kind: "partlyPaid" };
 
 /** ERROR because the deposit was short, not because settling it failed. */
 export const isUnderpaid = (payment: CheckoutPayment) =>
@@ -62,14 +66,28 @@ export function screenFor(
   {
     now,
     selectedId,
+    selectedChain,
     choosing,
-  }: { now: number; selectedId?: string; choosing: boolean },
+  }: {
+    now: number;
+    /** SINGLE: which open payment to show. */
+    selectedId?: string;
+    /** RUNNING_TOTAL: which chain's address to show. */
+    selectedChain?: string;
+    choosing: boolean;
+  },
 ): Screen {
+  if (view.mode === "RUNNING_TOTAL") {
+    return runningTotalScreen(view, { now, selectedChain, choosing });
+  }
+
   const paid = view.attempts.find((p) => p.status === "SUCCESSFUL");
-  if (view.status === "COMPLETED" || paid) return { kind: "paid", payment: paid };
+  if (view.status === "COMPLETED" || paid)
+    return { kind: "paid", payment: paid };
 
   const confirming = view.attempts.find(
-    (p) => p.status === "PROCESSING" || (p.status === "ERROR" && !isUnderpaid(p)),
+    (p) =>
+      p.status === "PROCESSING" || (p.status === "ERROR" && !isUnderpaid(p)),
   );
   if (confirming) return { kind: "confirming", payment: confirming };
 
@@ -93,6 +111,51 @@ export function screenFor(
   // seen close: the payer was mid-payment, so say why the address went away.
   const lapsed = view.attempts.some((p) => p.status === "AWAITING");
   return { kind: "choose", lapsed };
+}
+
+/**
+ * The screen for a running total. There is no single payment to follow: the
+ * payer has an address on each chain they opened, and every transfer to any
+ * of them counts until the total is reached. A transfer being confirmed shows
+ * on the address screen rather than replacing it, since more may be due.
+ */
+function runningTotalScreen(
+  view: CheckoutView,
+  {
+    now,
+    selectedChain,
+    choosing,
+  }: { now: number; selectedChain?: string; choosing: boolean },
+): Screen {
+  if (view.status === "COMPLETED") {
+    return {
+      kind: "paid",
+      payment: view.attempts.find((p) => p.status === "SUCCESSFUL"),
+    };
+  }
+  if (view.status === "CANCELLED") return { kind: "cancelled" };
+
+  if (!isOpen(view, now)) {
+    const somethingIn =
+      (view.amountReceived ?? 0) > 0 ||
+      view.attempts.some((p) => p.status === "PROCESSING");
+    return { kind: somethingIn ? "partlyPaid" : "expired" };
+  }
+
+  const addresses = view.depositAddresses;
+  if (choosing || !addresses.length) return { kind: "choose", lapsed: false };
+
+  const address =
+    addresses.find((a) => a.chain === selectedChain) ??
+    addresses[addresses.length - 1];
+  return { kind: "deposit", address, others: addresses.length - 1 };
+}
+
+/** What is still to send on a running total, never below zero. */
+export function amountLeft(view: CheckoutView): number {
+  const left = (view.amountDue ?? 0) - (view.amountReceived ?? 0);
+  // Rounded to the stablecoin's precision, so float noise never shows.
+  return Math.max(0, Math.round(left * 1e6) / 1e6);
 }
 
 /**

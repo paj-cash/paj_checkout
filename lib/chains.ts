@@ -13,12 +13,24 @@ interface ChainInfo {
 
 const CHAINS: Record<string, ChainInfo> = {
   SOLANA: { name: "Solana", mark: "SOL", tone: "bg-[#14151a] text-[#14f195]" },
-  ETHEREUM: { name: "Ethereum", mark: "ETH", tone: "bg-[#ecf0fe] text-[#4a5ee8]" },
+  ETHEREUM: {
+    name: "Ethereum",
+    mark: "ETH",
+    tone: "bg-[#ecf0fe] text-[#4a5ee8]",
+  },
   BASE: { name: "Base", mark: "B", tone: "bg-[#0052ff] text-white" },
-  BSC: { name: "BNB Smart Chain", mark: "BNB", tone: "bg-[#fdf6e0] text-[#c99400]" },
+  BSC: {
+    name: "BNB Smart Chain",
+    mark: "BNB",
+    tone: "bg-[#fdf6e0] text-[#c99400]",
+  },
   MONAD: { name: "Monad", mark: "MON", tone: "bg-[#ede9fe] text-[#6e54ff]" },
   ARC: { name: "Arc", mark: "ARC", tone: "bg-[#eaf2ff] text-[#1b4ed8]" },
-  ROBINHOOD: { name: "Robinhood Chain", mark: "HD", tone: "bg-[#e9fbd8] text-[#2d6a00]" },
+  ROBINHOOD: {
+    name: "Robinhood Chain",
+    mark: "HD",
+    tone: "bg-[#e9fbd8] text-[#2d6a00]",
+  },
   TON: { name: "TON", mark: "TON", tone: "bg-[#e6f4ff] text-[#0088cc]" },
   SUI: { name: "Sui", mark: "SUI", tone: "bg-[#e8f4ff] text-[#2f8cff]" },
   NEAR: { name: "NEAR", mark: "N", tone: "bg-[#111111] text-white" },

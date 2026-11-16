@@ -49,6 +49,10 @@ function ReturnLink({ href, business }: { href?: string; business: string }) {
   );
 }
 
+/** How many transfers a running total was paid in. */
+const transfersOf = (view: CheckoutView) =>
+  view.attempts.filter((p) => p.status === "SUCCESSFUL").length;
+
 /** "1.7069 USDC on Solana", for a payment's token side. */
 function paidWith(payment: CheckoutPayment, symbol: string) {
   const chain = payment.token ? chainInfo(payment.token.chain).name : "";
@@ -93,10 +97,20 @@ export function PaidPanel({
         </strong>
         .
       </p>
-      {payment && (
+      {view.mode === "RUNNING_TOTAL" ? (
         <p className="rounded-xl bg-surface p-3 text-xs text-muted">
-          Paid {paidWith(payment, symbol)} &middot; Ref {view.reference}
+          Paid {formatToken(view.amountReceived ?? 0)} {symbol}
+          {transfersOf(view) > 1
+            ? ` in ${transfersOf(view)} transfers`
+            : ""}{" "}
+          &middot; Ref {view.reference}
         </p>
+      ) : (
+        payment && (
+          <p className="rounded-xl bg-surface p-3 text-xs text-muted">
+            Paid {paidWith(payment, symbol)} &middot; Ref {view.reference}
+          </p>
+        )
       )}
       {returnTo && (
         <>
@@ -156,8 +170,50 @@ export function UnderpaidPanel({
       <p>
         Don&rsquo;t send anything more to this address. Contact{" "}
         {view.business.name} and quote reference{" "}
+        <strong className="font-mono text-ink">{view.reference}</strong> to sort
+        it out.
+      </p>
+      <ReturnLink href={returnTo} business={view.business.name} />
+    </Status>
+  );
+}
+
+/**
+ * A running total that ran out before it was paid in full. What arrived is
+ * already the business's, so the payer is pointed at the business to sort out
+ * the rest or a refund — and told not to send more.
+ */
+export function PartlyPaidPanel({
+  view,
+  symbol,
+  returnTo,
+}: {
+  view: CheckoutView;
+  symbol: string;
+  returnTo?: string;
+}) {
+  return (
+    <Status
+      tone="warning"
+      icon={<Icon name="alert" className="h-7 w-7" />}
+      title="This checkout expired part-paid"
+    >
+      <p>
+        {view.business.name} received{" "}
+        <strong className="text-ink">
+          {formatToken(view.amountReceived ?? 0)} {symbol}
+        </strong>{" "}
+        of the{" "}
+        <strong className="text-ink">
+          {formatToken(view.amountDue ?? 0)} {symbol}
+        </strong>{" "}
+        due before this checkout ran out.
+      </p>
+      <p>
+        Don&rsquo;t send anything more to this address. Contact{" "}
+        {view.business.name} and quote reference{" "}
         <strong className="font-mono text-ink">{view.reference}</strong> to
-        sort it out.
+        complete your order or get a refund.
       </p>
       <ReturnLink href={returnTo} business={view.business.name} />
     </Status>

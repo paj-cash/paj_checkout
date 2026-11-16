@@ -16,14 +16,7 @@ export function PajMark({ className = "h-4 w-auto" }: { className?: string }) {
 }
 
 type IconName =
-  | "check"
-  | "clock"
-  | "alert"
-  | "copy"
-  | "lock"
-  | "back"
-  | "chevron"
-  | "x";
+  "check" | "clock" | "alert" | "copy" | "lock" | "back" | "chevron" | "x";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,

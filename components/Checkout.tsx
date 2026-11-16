@@ -6,12 +6,14 @@ import { useCheckout, useNow } from "@/lib/hooks";
 import { isWaiting, returnUrl, screenFor } from "@/lib/screen";
 import type { CheckoutPayment, CheckoutView } from "@/lib/types";
 import { ChainPicker } from "./ChainPicker";
+import { DepositPanel } from "./DepositPanel";
 import { PaymentPanel } from "./PaymentPanel";
 import {
   CancelledPanel,
   ConfirmingPanel,
   ExpiredPanel,
   PaidPanel,
+  PartlyPaidPanel,
   UnderpaidPanel,
 } from "./StatusPanels";
 import { Icon, PajMark } from "./ui";
@@ -65,19 +67,34 @@ export function Checkout({
   initial: CheckoutView;
 }) {
   const now = useNow();
-  const { view, start } = useCheckout(token, initial, now);
-  // Which open payment to show when the payer has more than one, and whether
-  // they asked to pick another network.
+  const { view, start, address } = useCheckout(token, initial, now);
+  // Which open payment (SINGLE) or address (RUNNING_TOTAL) to show when the
+  // payer has more than one, and whether they asked to pick another network.
   const [selectedId, setSelectedId] = useState<string>();
+  const [selectedChain, setSelectedChain] = useState<string>();
   const [choosing, setChoosing] = useState(false);
 
-  const screen = screenFor(view, { now, selectedId, choosing });
+  const runningTotal = view.mode === "RUNNING_TOTAL";
+  const screen = screenFor(view, { now, selectedId, selectedChain, choosing });
   const returnTo = returnUrl(view);
-  const hasOpenPayment = view.attempts.some((p) => isWaiting(p, now));
+  const hasOpenPayment = runningTotal
+    ? view.depositAddresses.length > 0
+    : view.attempts.some((p) => isWaiting(p, now));
+  // A running total's symbol comes from its addresses, which all take the
+  // same dollar stablecoin (USDC, or USDT on TON).
+  const runningSymbol =
+    view.depositAddresses.find((a) => a.chain === selectedChain)?.symbol ??
+    view.depositAddresses.at(-1)?.symbol ??
+    "USDC";
 
   async function pay(chain: string) {
-    const payment = await start(chain);
-    setSelectedId(payment.id);
+    if (runningTotal) {
+      const opened = await address(chain);
+      setSelectedChain(opened.chain);
+    } else {
+      const payment = await start(chain);
+      setSelectedId(payment.id);
+    }
     setChoosing(false);
   }
 
@@ -92,6 +109,17 @@ export function Checkout({
           lapsed={screen.lapsed}
           onPick={pay}
           onBack={hasOpenPayment ? () => setChoosing(false) : undefined}
+        />
+      );
+      break;
+    case "deposit":
+      body = (
+        <DepositPanel
+          view={view}
+          address={screen.address}
+          now={now}
+          others={screen.others}
+          onChangeNetwork={() => setChoosing(true)}
         />
       );
       break;
@@ -114,7 +142,16 @@ export function Checkout({
         <PaidPanel
           view={view}
           payment={screen.payment}
-          symbol={symbolOf(view, screen.payment)}
+          symbol={runningTotal ? runningSymbol : symbolOf(view, screen.payment)}
+          returnTo={returnTo}
+        />
+      );
+      break;
+    case "partlyPaid":
+      body = (
+        <PartlyPaidPanel
+          view={view}
+          symbol={runningSymbol}
           returnTo={returnTo}
         />
       );

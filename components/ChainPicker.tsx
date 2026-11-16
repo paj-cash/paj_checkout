@@ -112,7 +112,10 @@ export function ChainPicker({
       )}
 
       {error && (
-        <p role="alert" className="rounded-xl bg-danger-50 p-3 text-sm text-danger">
+        <p
+          role="alert"
+          className="rounded-xl bg-danger-50 p-3 text-sm text-danger"
+        >
           {error}
         </p>
       )}

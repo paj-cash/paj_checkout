@@ -68,7 +68,8 @@ export function PaymentPanel({
         large
         display={
           <>
-            {amount} <span className="text-base font-medium text-muted">{symbol}</span>
+            {amount}{" "}
+            <span className="text-base font-medium text-muted">{symbol}</span>
           </>
         }
       />
@@ -80,7 +81,12 @@ export function PaymentPanel({
 
       <div className="flex flex-col items-center gap-2 rounded-2xl ring-1 ring-line p-4">
         <QrCode
-          value={paymentUri(token.chain, token.address, token.mint, payment.totalAmount)}
+          value={paymentUri(
+            token.chain,
+            token.address,
+            token.mint,
+            payment.totalAmount,
+          )}
           label={`QR code for the ${chain} address to pay`}
         />
         <p className="text-xs text-muted">
