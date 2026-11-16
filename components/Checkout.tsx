@@ -5,8 +5,10 @@ import { formatPrice } from "@/lib/format";
 import { useCheckout, useNow } from "@/lib/hooks";
 import { returnUrl, screenFor } from "@/lib/screen";
 import type { CheckoutView } from "@/lib/types";
+import { sameMint } from "@/lib/chains";
 import { ChainPicker } from "./ChainPicker";
 import { DepositPanel } from "./DepositPanel";
+import { TokenPicker } from "./TokenPicker";
 import {
   CancelledPanel,
   ExpiredPanel,
@@ -56,24 +58,50 @@ export function Checkout({
 }) {
   const now = useNow();
   const { view, address } = useCheckout(token, initial, now);
-  // Which address to show when the payer has opened more than one, and
-  // whether they asked to pick another network.
+  // Which network and token to show the payer, and whether they asked to pick
+  // another network or another token.
   const [selectedChain, setSelectedChain] = useState<string>();
-  const [choosing, setChoosing] = useState(false);
+  const [selectedMint, setSelectedMint] = useState<string>();
+  const [picking, setPicking] = useState<"network" | "token">();
 
-  const screen = screenFor(view, { now, selectedChain, choosing });
+  const screen = screenFor(view, {
+    now,
+    selectedChain,
+    selectedMint,
+    picking,
+  });
   const returnTo = returnUrl(view);
-  // The symbol comes from the addresses, which all take the same dollar
-  // stablecoin (USDC, or USDT on TON).
+  const optionFor = (chain: string) =>
+    view.paymentOptions.find((option) => option.chain === chain);
+  // Totals are kept in the stablecoin, the same dollar one on every chain
+  // (USDC, or USDT on TON).
   const symbol =
-    view.depositAddresses.find((a) => a.chain === selectedChain)?.symbol ??
-    view.depositAddresses.at(-1)?.symbol ??
-    "USDC";
+    (
+      view.depositAddresses.find((a) => a.chain === selectedChain) ??
+      view.depositAddresses.at(-1)
+    )?.tokens.find((t) => t.stable)?.symbol ?? "USDC";
 
-  async function pay(chain: string) {
-    const opened = await address(chain);
-    setSelectedChain(opened.chain);
-    setChoosing(false);
+  /** A network: on to its tokens, or straight to its stablecoin address. */
+  async function pickNetwork(chain: string) {
+    setSelectedChain(chain);
+    if (optionFor(chain)?.anyToken) {
+      setPicking("token");
+      return;
+    }
+    await address(chain);
+    setSelectedMint(undefined);
+    setPicking(undefined);
+  }
+
+  /** A token on the chosen network: its address, set to take it. */
+  async function pickToken(mint: string) {
+    if (!selectedChain) return;
+    const opened = await address(selectedChain, mint);
+    const picked = opened.tokens.find((t) =>
+      sameMint(opened.chain, t.mint, mint),
+    );
+    setSelectedMint(picked?.mint ?? opened.tokens.at(-1)?.mint);
+    setPicking(undefined);
   }
 
   let body;
@@ -84,23 +112,40 @@ export function Checkout({
           options={view.paymentOptions}
           expiresAt={view.expiresAt}
           now={now}
-          onPick={pay}
+          onPick={pickNetwork}
           onBack={
             view.depositAddresses.length > 0
-              ? () => setChoosing(false)
+              ? () => setPicking(undefined)
               : undefined
           }
+        />
+      );
+      break;
+    case "chooseToken":
+      body = (
+        <TokenPicker
+          checkoutToken={token}
+          chain={screen.chain}
+          onPick={pickToken}
+          onBack={() => setPicking("network")}
         />
       );
       break;
     case "deposit":
       body = (
         <DepositPanel
+          checkoutToken={token}
           view={view}
           address={screen.address}
+          token={screen.token}
           now={now}
           others={screen.others}
-          onChangeNetwork={() => setChoosing(true)}
+          canChangeToken={!!optionFor(screen.address.chain)?.anyToken}
+          onChangeToken={() => {
+            setSelectedChain(screen.address.chain);
+            setPicking("token");
+          }}
+          onChangeNetwork={() => setPicking("network")}
         />
       );
       break;

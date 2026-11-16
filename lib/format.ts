@@ -18,6 +18,20 @@ export const formatPrice = (amount: number, currency: Currency) =>
   priceFormats[currency].format(amount);
 
 /**
+ * A token's dollar price: cents for anything over a dollar, enough
+ * significant digits to mean something for the tokens worth a fraction of a
+ * cent. $160.42, $0.6512, $0.00002134.
+ */
+export const formatUsdPrice = (price: number) =>
+  price >= 1
+    ? priceFormats.USD.format(price)
+    : price.toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumSignificantDigits: 4,
+      });
+
+/**
  * A token amount exactly as it must be sent: every significant digit, no
  * rounding and no trailing zeros. 1.7069 stays 1.7069, 25 stays 25.
  */

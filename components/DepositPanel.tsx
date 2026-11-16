@@ -1,17 +1,24 @@
 "use client";
 
 import { chainInfo, paymentUri } from "@/lib/chains";
-import { formatCountdown, formatPrice, formatToken } from "@/lib/format";
-import { amountLeft, isConfirming } from "@/lib/screen";
+import {
+  formatCountdown,
+  formatPrice,
+  formatToken,
+  formatUsdPrice,
+} from "@/lib/format";
+import { useQuote } from "@/lib/hooks";
+import { amountLeft, isConfirming, tokenOf } from "@/lib/screen";
 import type {
   CheckoutPayment,
+  CheckoutToken,
   CheckoutView,
   DepositAddress,
 } from "@/lib/types";
 import { ChainMark } from "./ChainMark";
 import { CopyField } from "./CopyField";
 import { QrCode } from "./QrCode";
-import { Icon, Spinner } from "./ui";
+import { Button, Icon, Spinner } from "./ui";
 
 /** Under this, the countdown turns amber so the payer knows to hurry. */
 const HURRY_MS = 15 * 60 * 1000;
@@ -38,28 +45,40 @@ function Progress({ received, due }: { received: number; due: number }) {
   );
 }
 
-/** One transfer that has arrived, on whichever chain. */
+/**
+ * One transfer that has arrived, on whichever chain, in whichever token. A
+ * token other than the stablecoin shows what its swap came to once swept,
+ * since that is what counted.
+ */
 function Transfer({
+  view,
   payment,
-  symbol,
+  stableSymbol,
 }: {
+  view: CheckoutView;
   payment: CheckoutPayment;
-  symbol: string;
+  stableSymbol: string;
 }) {
+  const token = tokenOf(view, payment);
+  const symbol = token?.symbol ?? "";
   const amount = payment.receivedAmount ?? payment.totalAmount;
   const chain = payment.token ? chainInfo(payment.token.chain).name : "";
   const confirmed = payment.status === "SUCCESSFUL";
+  const swapped = confirmed && token && !token.stable && payment.usdcAmount;
   return (
     <li className="flex items-center gap-2 text-sm">
       {confirmed ? (
-        <Icon name="check" className="h-4 w-4 text-success" />
+        <Icon name="check" className="h-4 w-4 shrink-0 text-success" />
       ) : (
-        <Spinner className="h-4 w-4 text-brand-500" />
+        <Spinner className="h-4 w-4 shrink-0 text-brand-500" />
       )}
       <span className="font-mono font-medium">
         +{formatToken(amount)} {symbol}
       </span>
-      <span className="text-muted">
+      <span className="min-w-0 text-muted">
+        {swapped
+          ? `→ ${formatToken(payment.usdcAmount!)} ${stableSymbol} · `
+          : ""}
         {chain && `on ${chain} · `}
         {confirmed ? "received" : "confirming"}
       </span>
@@ -67,30 +86,52 @@ function Transfer({
   );
 }
 
+/** "USDC", "USDC or SOL", "USDC, SOL or JUP". */
+function listOf(tokens: CheckoutToken[]): string {
+  const symbols = tokens.map((t) => t.symbol);
+  if (symbols.length <= 1) return symbols.join("");
+  return `${symbols.slice(0, -1).join(", ")} or ${symbols.at(-1)}`;
+}
+
 /**
- * Paying a checkout: one address per chain, any number of transfers, from any
- * wallet. Shows what is left rather than one fixed amount, and every transfer
- * as it arrives, so the payer can see exactly where they stand.
+ * Paying a checkout: one address per chain, which takes the stablecoin and
+ * each token the payer picked, in any number of transfers, from any wallet.
+ * Shows what is left in the token being paid with — live-quoted for anything
+ * but the stablecoin — and every transfer as it arrives.
  */
 export function DepositPanel({
+  checkoutToken,
   view,
   address,
+  token,
   now,
   others,
+  canChangeToken,
+  onChangeToken,
   onChangeNetwork,
 }: {
+  checkoutToken: string;
   view: CheckoutView;
   address: DepositAddress;
+  token: CheckoutToken;
   now: number;
   /** Other networks already opened on this checkout. */
   others: number;
+  canChangeToken: boolean;
+  onChangeToken: () => void;
   onChangeNetwork: () => void;
 }) {
   const chain = chainInfo(address.chain).name;
-  const symbol = address.symbol;
+  const stable = address.tokens.find((t) => t.stable) ?? token;
   const due = view.amountDue;
   const received = view.amountReceived;
   const left = amountLeft(view);
+  const { quote, error, retry } = useQuote(
+    checkoutToken,
+    address.chain,
+    token,
+    left,
+  );
   const remaining = new Date(view.expiresAt).getTime() - now;
   const transfers = view.payments.filter(
     (p) => p.status === "SUCCESSFUL" || isConfirming(p),
@@ -102,7 +143,7 @@ export function DepositPanel({
       <div className="flex items-center gap-3">
         <ChainMark chain={address.chain} size="sm" />
         <h2 className="min-w-0 flex-1 font-display text-base font-semibold">
-          Send {symbol} on {chain}
+          Send {token.symbol} on {chain}
         </h2>
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-xs font-medium tabular-nums ${
@@ -125,7 +166,7 @@ export function DepositPanel({
               <strong className="text-ink">{formatToken(received)}</strong>
               <span className="text-muted">
                 {" "}
-                of {formatToken(due)} {symbol}
+                of {formatToken(due)} {stable.symbol}
               </span>
             </span>
           </div>
@@ -133,47 +174,73 @@ export function DepositPanel({
         </div>
       )}
 
-      <CopyField
-        label={received > 0 ? "Amount left to send" : "Amount to send"}
-        value={formatToken(left)}
-        large
-        display={
-          <>
-            {formatToken(left)}{" "}
-            <span className="text-base font-medium text-muted">{symbol}</span>
-          </>
-        }
-      />
+      {quote ? (
+        <CopyField
+          label={received > 0 ? "Amount left to send" : "Amount to send"}
+          value={formatToken(quote.amount)}
+          large
+          display={
+            <>
+              {formatToken(quote.amount)}{" "}
+              <span className="text-base font-medium text-muted">
+                {token.symbol}
+              </span>
+            </>
+          }
+        />
+      ) : error ? (
+        <div className="space-y-2 rounded-xl bg-danger-50 p-3 text-sm text-danger">
+          <p role="alert">{error}</p>
+          <Button variant="secondary" onClick={retry}>
+            Try again
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-xl bg-surface p-4 text-sm text-muted">
+          <Spinner className="h-4 w-4 text-brand-500" />
+          Getting a price for {token.symbol}…
+        </div>
+      )}
       <p className="-mt-2 px-1 text-xs text-muted">
+        {!token.stable && quote
+          ? `About ${formatToken(left)} ${stable.symbol} at ${formatUsdPrice(quote.pricePerToken)} per ${token.symbol}, plus ${quote.bufferPercent}% for price movement. ${token.symbol} is converted when it arrives; anything over the total goes to ${view.business.name}. `
+          : ""}
         {view.rate
           ? `${formatPrice(view.amount, view.currency)} at ${formatPrice(view.rate, view.currency)} to the dollar. `
           : ""}
         {view.fee
-          ? `Includes a ${formatToken(view.fee)} ${symbol} PAJ fee. `
+          ? `The total includes a ${formatToken(view.fee)} ${stable.symbol} PAJ fee. `
           : ""}
         You can send it in more than one transfer, from any wallet.
       </p>
 
-      <div className="flex flex-col items-center gap-2 rounded-2xl ring-1 ring-line p-4">
-        <QrCode
-          value={paymentUri(address.chain, address.address, address.mint, left)}
-          label={`QR code for the ${chain} address to pay`}
-        />
-        <p className="text-xs text-muted">
-          {address.chain === "SOLANA"
-            ? "Scan with a Solana wallet to fill in what's left"
-            : "Scan with your wallet to copy the address"}
-        </p>
-      </div>
+      {quote && (
+        <div className="flex flex-col items-center gap-2 rounded-2xl ring-1 ring-line p-4">
+          <QrCode
+            value={paymentUri(
+              address.chain,
+              address.address,
+              token,
+              quote.amount,
+            )}
+            label={`QR code for the ${chain} address to pay`}
+          />
+          <p className="text-xs text-muted">
+            {address.chain === "SOLANA"
+              ? "Scan with a Solana wallet to fill in what's left"
+              : "Scan with your wallet to copy the address"}
+          </p>
+        </div>
+      )}
 
       <CopyField label={`${chain} address`} value={address.address} />
 
       <div className="flex gap-2.5 rounded-xl bg-warning-50 p-3 text-sm text-warning">
         <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          Send only <strong>{symbol}</strong> on <strong>{chain}</strong> to
-          this address. Other tokens or networks won&rsquo;t count towards your
-          payment.
+          Send only <strong>{listOf(address.tokens)}</strong> on{" "}
+          <strong>{chain}</strong> to this address. Anything else won&rsquo;t
+          count towards your payment.
         </p>
       </div>
 
@@ -184,7 +251,12 @@ export function DepositPanel({
           </h3>
           <ul className="space-y-1.5">
             {transfers.map((payment) => (
-              <Transfer key={payment.id} payment={payment} symbol={symbol} />
+              <Transfer
+                key={payment.id}
+                view={view}
+                payment={payment}
+                stableSymbol={stable.symbol}
+              />
             ))}
           </ul>
         </div>
@@ -199,7 +271,16 @@ export function DepositPanel({
             : "Waiting for your payment…"}
       </div>
 
-      <div className="text-center">
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+        {canChangeToken && (
+          <button
+            type="button"
+            onClick={onChangeToken}
+            className="rounded-lg px-2 py-1 text-sm font-medium text-brand-600 hover:bg-brand-50"
+          >
+            Pay with another token
+          </button>
+        )}
         <button
           type="button"
           onClick={onChangeNetwork}

@@ -57,7 +57,7 @@ export function chainInfo(chain: string): ChainInfo {
 export function paymentUri(
   chain: string,
   address: string,
-  mint: string,
+  token: { mint: string; native: boolean },
   amount: number,
 ): string {
   if (chain === "SOLANA") {
@@ -66,10 +66,16 @@ export function paymentUri(
         useGrouping: false,
         maximumFractionDigits: 9,
       }),
-      "spl-token": mint,
+      // Native SOL is named by leaving the token out.
+      ...(token.native ? {} : { "spl-token": token.mint }),
       label: "PAJ Checkout",
     });
     return `solana:${address}?${params.toString()}`;
   }
   return address;
+}
+
+/** Whether two spellings name one token. EVM addresses ignore case. */
+export function sameMint(chain: string, a: string, b: string): boolean {
+  return chain === "SOLANA" ? a === b : a.toLowerCase() === b.toLowerCase();
 }

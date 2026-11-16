@@ -1,13 +1,26 @@
-import type { CheckoutPayment, CheckoutView, DepositAddress } from "./types";
+import { sameMint } from "./chains";
+import type {
+  CheckoutPayment,
+  CheckoutToken,
+  CheckoutView,
+  DepositAddress,
+} from "./types";
 
 /** What the page shows. Exactly one at a time. */
 export type Screen =
   /** Paid in full. */
   | { kind: "paid" }
-  /** Pick a network to get an address on. */
+  /** Pick a network to pay on. */
   | { kind: "choose" }
+  /** Pick a token on the network chosen. */
+  | { kind: "chooseToken"; chain: string }
   /** Where to send, how much is left, what has arrived. */
-  | { kind: "deposit"; address: DepositAddress; others: number }
+  | {
+      kind: "deposit";
+      address: DepositAddress;
+      token: CheckoutToken;
+      others: number;
+    }
   | { kind: "cancelled" }
   | { kind: "expired" }
   /** Ran out with only part of it paid. */
@@ -46,12 +59,16 @@ export function screenFor(
   {
     now,
     selectedChain,
-    choosing,
+    selectedMint,
+    picking,
   }: {
     now: number;
     /** Which network's address to show. */
     selectedChain?: string;
-    choosing: boolean;
+    /** Which of its tokens to show the amount in. */
+    selectedMint?: string;
+    /** The payer asked to pick a network, or a token on `selectedChain`. */
+    picking?: "network" | "token";
   },
 ): Screen {
   if (view.status === "COMPLETED") return { kind: "paid" };
@@ -63,13 +80,36 @@ export function screenFor(
     return { kind: somethingIn ? "partlyPaid" : "expired" };
   }
 
+  if (picking === "token" && selectedChain) {
+    return { kind: "chooseToken", chain: selectedChain };
+  }
   const addresses = view.depositAddresses;
-  if (choosing || !addresses.length) return { kind: "choose" };
+  if (picking === "network" || !addresses.length) return { kind: "choose" };
 
   const address =
     addresses.find((a) => a.chain === selectedChain) ??
     addresses[addresses.length - 1];
-  return { kind: "deposit", address, others: addresses.length - 1 };
+  // The token picked last, unless the payer chose one: after a reload that is
+  // the one they were most likely paying with.
+  const token =
+    (selectedMint &&
+      address.tokens.find((t) =>
+        sameMint(address.chain, t.mint, selectedMint),
+      )) ||
+    address.tokens[address.tokens.length - 1];
+  return { kind: "deposit", address, token, others: addresses.length - 1 };
+}
+
+/** The token a transfer was made in, from the addresses the checkout holds. */
+export function tokenOf(
+  view: CheckoutView,
+  payment: CheckoutPayment,
+): CheckoutToken | undefined {
+  const sent = payment.token;
+  if (!sent) return undefined;
+  return view.depositAddresses
+    .find((a) => a.chain === sent.chain)
+    ?.tokens.find((t) => sameMint(sent.chain, t.mint, sent.mint));
 }
 
 /** What is still to send, never below zero. */

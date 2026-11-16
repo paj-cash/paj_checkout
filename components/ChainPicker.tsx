@@ -58,7 +58,7 @@ export function ChainPicker({
 
       <div>
         <h2 className="font-display text-lg font-semibold">
-          How would you like to pay?
+          Which network will you pay on?
         </h2>
         <p className="mt-0.5 text-sm text-muted">
           Choose the network your wallet will send from.
@@ -82,10 +82,12 @@ export function ChainPicker({
                 <ChainMark chain={option.chain} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium">
-                    {option.symbol}
+                    {chainInfo(option.chain).name}
                   </span>
                   <span className="block text-xs text-muted">
-                    on {chainInfo(option.chain).name}
+                    {option.anyToken
+                      ? `${option.symbol} or any token`
+                      : `${option.symbol} only`}
                   </span>
                 </span>
                 {busy === option.chain ? (

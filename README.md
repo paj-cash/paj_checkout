@@ -26,14 +26,22 @@ or the URLs it hands out lead nowhere.
 - `lib/hooks.ts` keeps it current: the API's `checkout` socket pushes the whole
   checkout after every change, authenticated with the token in the handshake.
   While the socket is down the page polls instead.
-- `lib/screen.ts` picks the one screen to show: choose a network, send to the
-  address, paid, expired part-paid, expired or cancelled.
-- Choosing a network calls `POST /checkout/:token/addresses`, which gives the
-  checkout a deposit address on that network — the same one every time. The
-  payer may send to it in as many transfers as they like, from any wallet, and
-  each one counts towards `amountDue` until it is reached. The amount is fixed
-  in the stablecoin when the business creates the checkout; an NGN price is
-  converted then, at the `rate` shown.
+- `lib/screen.ts` picks the one screen to show: choose a network, choose a
+  token, send to the address, paid, expired part-paid, expired or cancelled.
+- The payer picks a network, then a token on it: the network's stablecoin,
+  its native coin, a popular token (`GET /checkout/:token/tokens`), or any
+  token whose address they paste. A network whose option lacks `anyToken`
+  skips the token step and takes only its stablecoin.
+- Picking a token calls `POST /checkout/:token/addresses` with the chain and
+  mint. That gives the checkout one deposit address on the network — the same
+  one every time — and adds the token to what it takes. The API refuses a
+  token it can't find or price, so the payer hears it before sending.
+- The total is fixed in the stablecoin when the business creates the checkout
+  (an NGN price is converted then, at the `rate` shown). The stablecoin counts
+  for what arrives; any other token counts for the USDC its swap produces, so
+  `useQuote` shows its amount from `GET /checkout/:token/quote` — the live
+  price plus a 1% buffer — refreshed every 30 seconds and after every
+  transfer.
 
 ## Security
 

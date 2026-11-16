@@ -1,5 +1,10 @@
 import { API_URL } from "./config";
-import type { CheckoutView, DepositAddress } from "./types";
+import type {
+  CheckoutView,
+  DepositAddress,
+  Quote,
+  SuggestedToken,
+} from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -42,9 +47,24 @@ const checkoutPath = (token: string) =>
 export const getCheckout = (token: string) =>
   request<CheckoutView>(checkoutPath(token));
 
-/** The checkout's address on `chain`: the same one every time it is asked for. */
-export const openAddress = (token: string, chain: string) =>
+/**
+ * The checkout's address on `chain`, set to take `mint` (the stablecoin when
+ * left out): the same address every time it is asked for.
+ */
+export const openAddress = (token: string, chain: string, mint?: string) =>
   request<DepositAddress>(`${checkoutPath(token)}/addresses`, {
     method: "POST",
-    body: JSON.stringify({ chain }),
+    body: JSON.stringify(mint ? { chain, mint } : { chain }),
   });
+
+/** The tokens to offer on `chain`: stablecoin, native coin, popular ones. */
+export const getTokens = (token: string, chain: string) =>
+  request<SuggestedToken[]>(
+    `${checkoutPath(token)}/tokens?${new URLSearchParams({ chain })}`,
+  );
+
+/** What to send of `mint` to pay what is left. */
+export const getQuote = (token: string, chain: string, mint: string) =>
+  request<Quote>(
+    `${checkoutPath(token)}/quote?${new URLSearchParams({ chain, mint })}`,
+  );
