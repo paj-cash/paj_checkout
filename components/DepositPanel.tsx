@@ -1,8 +1,8 @@
 "use client";
 
 import { chainInfo, paymentUri } from "@/lib/chains";
-import { formatCountdown, formatToken } from "@/lib/format";
-import { amountLeft } from "@/lib/screen";
+import { formatCountdown, formatPrice, formatToken } from "@/lib/format";
+import { amountLeft, isConfirming } from "@/lib/screen";
 import type {
   CheckoutPayment,
   CheckoutView,
@@ -68,7 +68,7 @@ function Transfer({
 }
 
 /**
- * A running total: one address per chain, any number of transfers, from any
+ * Paying a checkout: one address per chain, any number of transfers, from any
  * wallet. Shows what is left rather than one fixed amount, and every transfer
  * as it arrives, so the payer can see exactly where they stand.
  */
@@ -88,14 +88,14 @@ export function DepositPanel({
 }) {
   const chain = chainInfo(address.chain).name;
   const symbol = address.symbol;
-  const due = view.amountDue ?? 0;
-  const received = view.amountReceived ?? 0;
+  const due = view.amountDue;
+  const received = view.amountReceived;
   const left = amountLeft(view);
   const remaining = new Date(view.expiresAt).getTime() - now;
-  const transfers = view.attempts.filter(
-    (p) => p.status === "SUCCESSFUL" || p.status === "PROCESSING",
+  const transfers = view.payments.filter(
+    (p) => p.status === "SUCCESSFUL" || isConfirming(p),
   );
-  const confirming = transfers.some((p) => p.status === "PROCESSING");
+  const confirming = transfers.some(isConfirming);
 
   return (
     <div className="space-y-4">
@@ -145,6 +145,9 @@ export function DepositPanel({
         }
       />
       <p className="-mt-2 px-1 text-xs text-muted">
+        {view.rate
+          ? `${formatPrice(view.amount, view.currency)} at ${formatPrice(view.rate, view.currency)} to the dollar. `
+          : ""}
         {view.fee
           ? `Includes a ${formatToken(view.fee)} ${symbol} PAJ fee. `
           : ""}

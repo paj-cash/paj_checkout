@@ -12,16 +12,14 @@ export function ChainPicker({
   options,
   expiresAt,
   now,
-  lapsed,
   onPick,
   onBack,
 }: {
   options: PaymentOption[];
   expiresAt: string;
   now: number;
-  lapsed: boolean;
   onPick: (chain: string) => Promise<void>;
-  /** Back to a payment already open, when the payer came here from one. */
+  /** Back to an address already open, when the payer came here from one. */
   onBack?: () => void;
 }) {
   const [busy, setBusy] = useState<string>();
@@ -56,16 +54,6 @@ export function ChainPicker({
           <Icon name="back" className="h-4 w-4" />
           Back to your payment
         </button>
-      )}
-
-      {lapsed && (
-        <div className="flex gap-2.5 rounded-xl bg-warning-50 p-3 text-sm text-warning">
-          <Icon name="clock" className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
-            Your payment address expired before anything arrived. Don&rsquo;t
-            send to it. Choose a network below to get a new one.
-          </p>
-        </div>
       )}
 
       <div>

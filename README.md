@@ -26,10 +26,14 @@ or the URLs it hands out lead nowhere.
 - `lib/hooks.ts` keeps it current: the API's `checkout` socket pushes the whole
   checkout after every change, authenticated with the token in the handshake.
   While the socket is down the page polls instead.
-- `lib/screen.ts` picks the one screen to show: choose a network, pay, confirming,
-  paid, underpaid, expired or cancelled.
-- Choosing a network calls `POST /checkout/:token/attempts`, which reserves a
-  deposit address and quotes the amount in that network's stablecoin.
+- `lib/screen.ts` picks the one screen to show: choose a network, send to the
+  address, paid, expired part-paid, expired or cancelled.
+- Choosing a network calls `POST /checkout/:token/addresses`, which gives the
+  checkout a deposit address on that network — the same one every time. The
+  payer may send to it in as many transfers as they like, from any wallet, and
+  each one counts towards `amountDue` until it is reached. The amount is fixed
+  in the stablecoin when the business creates the checkout; an NGN price is
+  converted then, at the `rate` shown.
 
 ## Security
 

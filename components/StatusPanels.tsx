@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { chainInfo } from "@/lib/chains";
 import { formatPrice, formatToken } from "@/lib/format";
-import type { CheckoutPayment, CheckoutView } from "@/lib/types";
-import { ButtonLink, Icon, Spinner } from "./ui";
+import type { CheckoutView } from "@/lib/types";
+import { ButtonLink, Icon } from "./ui";
 
 /** How long the paid screen waits before sending the payer back. */
 const RETURN_AFTER_S = 5;
@@ -49,25 +48,16 @@ function ReturnLink({ href, business }: { href?: string; business: string }) {
   );
 }
 
-/** How many transfers a running total was paid in. */
+/** How many transfers the checkout was paid in. */
 const transfersOf = (view: CheckoutView) =>
-  view.attempts.filter((p) => p.status === "SUCCESSFUL").length;
-
-/** "1.7069 USDC on Solana", for a payment's token side. */
-function paidWith(payment: CheckoutPayment, symbol: string) {
-  const chain = payment.token ? chainInfo(payment.token.chain).name : "";
-  const amount = payment.receivedAmount ?? payment.totalAmount;
-  return `${formatToken(amount)} ${symbol}${chain ? ` on ${chain}` : ""}`;
-}
+  view.payments.filter((p) => p.status === "SUCCESSFUL").length;
 
 export function PaidPanel({
   view,
-  payment,
   symbol,
   returnTo,
 }: {
   view: CheckoutView;
-  payment?: CheckoutPayment;
   symbol: string;
   returnTo?: string;
 }) {
@@ -97,21 +87,11 @@ export function PaidPanel({
         </strong>
         .
       </p>
-      {view.mode === "RUNNING_TOTAL" ? (
-        <p className="rounded-xl bg-surface p-3 text-xs text-muted">
-          Paid {formatToken(view.amountReceived ?? 0)} {symbol}
-          {transfersOf(view) > 1
-            ? ` in ${transfersOf(view)} transfers`
-            : ""}{" "}
-          &middot; Ref {view.reference}
-        </p>
-      ) : (
-        payment && (
-          <p className="rounded-xl bg-surface p-3 text-xs text-muted">
-            Paid {paidWith(payment, symbol)} &middot; Ref {view.reference}
-          </p>
-        )
-      )}
+      <p className="rounded-xl bg-surface p-3 text-xs text-muted">
+        Paid {formatToken(view.amountReceived)} {symbol}
+        {transfersOf(view) > 1 ? ` in ${transfersOf(view)} transfers` : ""}{" "}
+        &middot; Ref {view.reference}
+      </p>
       {returnTo && (
         <>
           <ReturnLink href={returnTo} business={view.business.name} />
@@ -124,62 +104,8 @@ export function PaidPanel({
   );
 }
 
-export function ConfirmingPanel({ business }: { business: string }) {
-  return (
-    <Status
-      tone="progress"
-      icon={<Spinner className="h-7 w-7" />}
-      title="Payment received"
-    >
-      <p>
-        We&rsquo;re confirming your payment to {business}. This usually takes
-        under a minute. You can keep this page open; it updates by itself.
-      </p>
-    </Status>
-  );
-}
-
-export function UnderpaidPanel({
-  view,
-  payment,
-  symbol,
-  returnTo,
-}: {
-  view: CheckoutView;
-  payment: CheckoutPayment;
-  symbol: string;
-  returnTo?: string;
-}) {
-  return (
-    <Status
-      tone="warning"
-      icon={<Icon name="alert" className="h-7 w-7" />}
-      title="Payment incomplete"
-    >
-      <p>
-        We received{" "}
-        <strong className="text-ink">
-          {formatToken(payment.receivedAmount ?? 0)} {symbol}
-        </strong>
-        , less than the{" "}
-        <strong className="text-ink">
-          {formatToken(payment.totalAmount)} {symbol}
-        </strong>{" "}
-        due, so your payment hasn&rsquo;t gone through.
-      </p>
-      <p>
-        Don&rsquo;t send anything more to this address. Contact{" "}
-        {view.business.name} and quote reference{" "}
-        <strong className="font-mono text-ink">{view.reference}</strong> to sort
-        it out.
-      </p>
-      <ReturnLink href={returnTo} business={view.business.name} />
-    </Status>
-  );
-}
-
 /**
- * A running total that ran out before it was paid in full. What arrived is
+ * A checkout that ran out before it was paid in full. What arrived is
  * already the business's, so the payer is pointed at the business to sort out
  * the rest or a refund — and told not to send more.
  */
@@ -201,11 +127,11 @@ export function PartlyPaidPanel({
       <p>
         {view.business.name} received{" "}
         <strong className="text-ink">
-          {formatToken(view.amountReceived ?? 0)} {symbol}
+          {formatToken(view.amountReceived)} {symbol}
         </strong>{" "}
         of the{" "}
         <strong className="text-ink">
-          {formatToken(view.amountDue ?? 0)} {symbol}
+          {formatToken(view.amountDue)} {symbol}
         </strong>{" "}
         due before this checkout ran out.
       </p>

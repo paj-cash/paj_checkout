@@ -1,7 +1,7 @@
 /**
  * The shapes the PAJ API sends this page, mirrored from main_backend:
  * `PublicCheckoutSessionResDto` (GET /checkout/:token and every
- * CHECKOUT_UPDATE on the socket) and `PaymentResponseDto` (each attempt).
+ * CHECKOUT_UPDATE on the socket) and `PaymentResponseDto` (each transfer).
  */
 
 export type CheckoutStatus = "OPEN" | "COMPLETED" | "EXPIRED" | "CANCELLED";
@@ -18,30 +18,21 @@ export interface PaymentOption {
   mint: string;
 }
 
-/** A payment the payer started: where to send what, and where it stands. */
+/** A transfer that arrived on one of the checkout's addresses. */
 export interface CheckoutPayment {
   id: string;
   method: "TOKEN" | "FIAT";
   status: PaymentStatus;
-  /** The price in the token, before the fee. */
+  /** The part of it that pays the price, before the fee. */
   amount: number;
   fee?: number;
-  /** What the payer must send. */
   totalAmount: number;
-  /** What actually arrived, once something has. */
+  /** What actually arrived. */
   receivedAmount?: number;
-  expiresAt?: string;
   token?: { chain: string; mint: string; address: string };
 }
 
-/**
- * How a checkout collects. SINGLE: one quoted payment per attempt, on an
- * address of its own (NGN prices). RUNNING_TOTAL: an address per chain that
- * takes any number of transfers until `amountDue` is reached (USD prices).
- */
-export type CheckoutMode = "SINGLE" | "RUNNING_TOTAL";
-
-/** Where a RUNNING_TOTAL checkout takes payment on one chain. */
+/** Where a checkout takes payment on one chain. */
 export interface DepositAddress extends PaymentOption {
   address: string;
 }
@@ -52,21 +43,19 @@ export interface CheckoutView {
   status: CheckoutStatus;
   amount: number;
   currency: Currency;
-  mode: CheckoutMode;
-  /** RUNNING_TOTAL: what to send in all, in the stablecoin, fee included. */
-  amountDue?: number;
-  /** RUNNING_TOTAL: what has arrived so far. */
-  amountReceived?: number;
-  /** RUNNING_TOTAL: the fee included in `amountDue`. */
-  fee?: number;
+  /** NGN prices: naira per dollar the price was converted at, fixed. */
+  rate?: number;
+  /** What to send in all, in the stablecoin, fee included. */
+  amountDue: number;
+  /** What has arrived so far, in the stablecoin. */
+  amountReceived: number;
+  /** The fee included in `amountDue`. */
+  fee: number;
   callbackUrl?: string;
   expiresAt: string;
   paymentOptions: PaymentOption[];
-  /** RUNNING_TOTAL: the addresses opened so far, one per chain. */
+  /** The addresses opened so far, one per chain. */
   depositAddresses: DepositAddress[];
-  /**
-   * Newest first; ones that ran out unpaid are already left out. For a
-   * RUNNING_TOTAL checkout, the transfers that have arrived.
-   */
-  attempts: CheckoutPayment[];
+  /** The transfers that have arrived, newest first. */
+  payments: CheckoutPayment[];
 }

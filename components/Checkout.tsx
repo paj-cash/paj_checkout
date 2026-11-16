@@ -3,29 +3,17 @@
 import { useState } from "react";
 import { formatPrice } from "@/lib/format";
 import { useCheckout, useNow } from "@/lib/hooks";
-import { isWaiting, returnUrl, screenFor } from "@/lib/screen";
-import type { CheckoutPayment, CheckoutView } from "@/lib/types";
+import { returnUrl, screenFor } from "@/lib/screen";
+import type { CheckoutView } from "@/lib/types";
 import { ChainPicker } from "./ChainPicker";
 import { DepositPanel } from "./DepositPanel";
-import { PaymentPanel } from "./PaymentPanel";
 import {
   CancelledPanel,
-  ConfirmingPanel,
   ExpiredPanel,
   PaidPanel,
   PartlyPaidPanel,
-  UnderpaidPanel,
 } from "./StatusPanels";
 import { Icon, PajMark } from "./ui";
-
-/** The stablecoin a payment is in, from the options it was chosen from. */
-function symbolOf(view: CheckoutView, payment?: CheckoutPayment): string {
-  const chain = payment?.token?.chain;
-  return (
-    view.paymentOptions.find((option) => option.chain === chain)?.symbol ??
-    "USDC"
-  );
-}
 
 /** Who is being paid, and how much. Shown above every screen. */
 function Summary({ view }: { view: CheckoutView }) {
@@ -67,34 +55,24 @@ export function Checkout({
   initial: CheckoutView;
 }) {
   const now = useNow();
-  const { view, start, address } = useCheckout(token, initial, now);
-  // Which open payment (SINGLE) or address (RUNNING_TOTAL) to show when the
-  // payer has more than one, and whether they asked to pick another network.
-  const [selectedId, setSelectedId] = useState<string>();
+  const { view, address } = useCheckout(token, initial, now);
+  // Which address to show when the payer has opened more than one, and
+  // whether they asked to pick another network.
   const [selectedChain, setSelectedChain] = useState<string>();
   const [choosing, setChoosing] = useState(false);
 
-  const runningTotal = view.mode === "RUNNING_TOTAL";
-  const screen = screenFor(view, { now, selectedId, selectedChain, choosing });
+  const screen = screenFor(view, { now, selectedChain, choosing });
   const returnTo = returnUrl(view);
-  const hasOpenPayment = runningTotal
-    ? view.depositAddresses.length > 0
-    : view.attempts.some((p) => isWaiting(p, now));
-  // A running total's symbol comes from its addresses, which all take the
-  // same dollar stablecoin (USDC, or USDT on TON).
-  const runningSymbol =
+  // The symbol comes from the addresses, which all take the same dollar
+  // stablecoin (USDC, or USDT on TON).
+  const symbol =
     view.depositAddresses.find((a) => a.chain === selectedChain)?.symbol ??
     view.depositAddresses.at(-1)?.symbol ??
     "USDC";
 
   async function pay(chain: string) {
-    if (runningTotal) {
-      const opened = await address(chain);
-      setSelectedChain(opened.chain);
-    } else {
-      const payment = await start(chain);
-      setSelectedId(payment.id);
-    }
+    const opened = await address(chain);
+    setSelectedChain(opened.chain);
     setChoosing(false);
   }
 
@@ -106,9 +84,12 @@ export function Checkout({
           options={view.paymentOptions}
           expiresAt={view.expiresAt}
           now={now}
-          lapsed={screen.lapsed}
           onPick={pay}
-          onBack={hasOpenPayment ? () => setChoosing(false) : undefined}
+          onBack={
+            view.depositAddresses.length > 0
+              ? () => setChoosing(false)
+              : undefined
+          }
         />
       );
       break;
@@ -123,47 +104,12 @@ export function Checkout({
         />
       );
       break;
-    case "paying":
-      body = (
-        <PaymentPanel
-          payment={screen.payment}
-          symbol={symbolOf(view, screen.payment)}
-          now={now}
-          others={screen.others}
-          onChangeNetwork={() => setChoosing(true)}
-        />
-      );
-      break;
-    case "confirming":
-      body = <ConfirmingPanel business={view.business.name} />;
-      break;
     case "paid":
-      body = (
-        <PaidPanel
-          view={view}
-          payment={screen.payment}
-          symbol={runningTotal ? runningSymbol : symbolOf(view, screen.payment)}
-          returnTo={returnTo}
-        />
-      );
+      body = <PaidPanel view={view} symbol={symbol} returnTo={returnTo} />;
       break;
     case "partlyPaid":
       body = (
-        <PartlyPaidPanel
-          view={view}
-          symbol={runningSymbol}
-          returnTo={returnTo}
-        />
-      );
-      break;
-    case "underpaid":
-      body = (
-        <UnderpaidPanel
-          view={view}
-          payment={screen.payment}
-          symbol={symbolOf(view, screen.payment)}
-          returnTo={returnTo}
-        />
+        <PartlyPaidPanel view={view} symbol={symbol} returnTo={returnTo} />
       );
       break;
     case "cancelled":
