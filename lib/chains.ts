@@ -1,9 +1,9 @@
 /**
- * How each chain is shown to a payer. Kept here rather than fetched: the page
- * loads nothing from anywhere but its own origin and the PAJ API, so chain
- * marks are drawn locally instead of pulled from a logo CDN.
+ * How each chain is shown until GET /chain/chains answers, or when it can't
+ * be reached: its name, and a letter mark in its colours. The API's names and
+ * logos take over once they load (see ./catalog).
  */
-interface ChainInfo {
+export interface ChainInfo {
   name: string;
   /** Two or three letters for the chain's mark. */
   mark: string;

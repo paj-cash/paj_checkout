@@ -1,21 +1,35 @@
-import { chainInfo } from "@/lib/chains";
+"use client";
 
+import { useChains } from "@/lib/catalog";
+import { Logo } from "./Logo";
+
+const SIZES = {
+  xs: "h-4 w-4 text-[7px]",
+  sm: "h-7 w-7 text-[9px]",
+  md: "h-10 w-10 text-[11px]",
+};
+
+/** A chain's logo from GET /chain/chains, or its letters until it loads. */
 export function ChainMark({
   chain,
   size = "md",
 }: {
   chain: string;
-  size?: "sm" | "md";
+  size?: keyof typeof SIZES;
 }) {
-  const { mark, tone } = chainInfo(chain);
+  const { mark, tone, logo } = useChains()(chain);
   return (
-    <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${tone} ${
-        size === "sm" ? "h-7 w-7 text-[9px]" : "h-10 w-10 text-[11px]"
-      }`}
-      aria-hidden="true"
-    >
-      {mark}
-    </span>
+    <Logo
+      src={logo}
+      className={SIZES[size]}
+      fallback={
+        <span
+          className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${tone} ${SIZES[size]}`}
+          aria-hidden="true"
+        >
+          {size === "xs" ? mark.charAt(0) : mark}
+        </span>
+      }
+    />
   );
 }

@@ -1,7 +1,9 @@
 /**
  * The shapes the PAJ API sends this page, mirrored from main_backend:
  * `PublicCheckoutSessionResDto` (GET /checkout/:token and every
- * CHECKOUT_UPDATE on the socket) and `PaymentResponseDto` (each transfer).
+ * CHECKOUT_UPDATE on the socket) and `PaymentResponseDto` (each transfer),
+ * plus `ChainDto` (GET /chain/chains) and `ChainTokenInfo` (GET /chain/token)
+ * for names and logos.
  */
 
 export type CheckoutStatus = "OPEN" | "COMPLETED" | "EXPIRED" | "CANCELLED";
@@ -30,6 +32,31 @@ export interface CheckoutToken {
   native: boolean;
   /** Counted for what arrives; anything else for what its swap produces. */
   stable: boolean;
+}
+
+/** A chain as GET /chain/chains describes it, whether or not it can be paid on. */
+export interface ChainMeta {
+  chain: string;
+  name: string;
+  symbol: string;
+  logo: string | null;
+  isActive: boolean;
+}
+
+/** A token as its chain's metadata source describes it (GET /chain/token). */
+export interface ChainTokenInfo {
+  chain: string;
+  address: string;
+  decimals: number;
+  symbol: string;
+  name: string;
+  /** Logo URL, when the source has one. */
+  image?: string;
+  /**
+   * Whether the source vouches for the token: Jupiter's verified list on
+   * Solana, TonAPI's whitelist on TON. Absent where it has no opinion (EVM).
+   */
+  verified?: boolean;
 }
 
 /** A token the picker offers. */

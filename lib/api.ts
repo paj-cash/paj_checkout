@@ -1,5 +1,7 @@
 import { API_URL } from "./config";
 import type {
+  ChainMeta,
+  ChainTokenInfo,
   CheckoutView,
   DepositAddress,
   Quote,
@@ -67,4 +69,16 @@ export const getTokens = (token: string, chain: string) =>
 export const getQuote = (token: string, chain: string, mint: string) =>
   request<Quote>(
     `${checkoutPath(token)}/quote?${new URLSearchParams({ chain, mint })}`,
+  );
+
+/**
+ * Every chain PAJ knows, with its name and logo. Which of them this checkout
+ * can be paid on is the checkout's `paymentOptions`, not this.
+ */
+export const getChains = () => request<ChainMeta[]>("/chain/chains");
+
+/** A token's name, logo and verified flag from its chain's metadata source. */
+export const getChainToken = (chain: string, token: string) =>
+  request<ChainTokenInfo>(
+    `/chain/token?${new URLSearchParams({ chain, token })}`,
   );

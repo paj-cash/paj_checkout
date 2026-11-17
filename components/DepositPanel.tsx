@@ -1,6 +1,7 @@
 "use client";
 
-import { chainInfo, paymentUri } from "@/lib/chains";
+import { useChains } from "@/lib/catalog";
+import { paymentUri } from "@/lib/chains";
 import {
   formatCountdown,
   formatPrice,
@@ -18,6 +19,7 @@ import type {
 import { ChainMark } from "./ChainMark";
 import { CopyField } from "./CopyField";
 import { QrCode } from "./QrCode";
+import { TokenMark } from "./TokenMark";
 import { Button, Icon, Spinner } from "./ui";
 
 /** Under this, the countdown turns amber so the payer knows to hurry. */
@@ -59,10 +61,11 @@ function Transfer({
   payment: CheckoutPayment;
   stableSymbol: string;
 }) {
+  const chainOf = useChains();
   const token = tokenOf(view, payment);
   const symbol = token?.symbol ?? "";
   const amount = payment.receivedAmount ?? payment.totalAmount;
-  const chain = payment.token ? chainInfo(payment.token.chain).name : "";
+  const chain = payment.token ? chainOf(payment.token.chain).name : "";
   const confirmed = payment.status === "SUCCESSFUL";
   const swapped = confirmed && token && !token.stable && payment.usdcAmount;
   return (
@@ -121,7 +124,7 @@ export function DepositPanel({
   onChangeToken: () => void;
   onChangeNetwork: () => void;
 }) {
-  const chain = chainInfo(address.chain).name;
+  const chain = useChains()(address.chain).name;
   const stable = address.tokens.find((t) => t.stable) ?? token;
   const due = view.amountDue;
   const received = view.amountReceived;
@@ -141,7 +144,12 @@ export function DepositPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <ChainMark chain={address.chain} size="sm" />
+        <span className="relative inline-flex shrink-0">
+          <TokenMark chain={address.chain} token={token} size="sm" />
+          <span className="absolute -right-1 -bottom-1 inline-flex rounded-full ring-2 ring-white">
+            <ChainMark chain={address.chain} size="xs" />
+          </span>
+        </span>
         <h2 className="min-w-0 flex-1 font-display text-base font-semibold">
           Send {token.symbol} on {chain}
         </h2>

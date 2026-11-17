@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ApiError } from "@/lib/api";
-import { chainInfo } from "@/lib/chains";
+import { useChains } from "@/lib/catalog";
 import { formatCountdown } from "@/lib/format";
 import type { PaymentOption } from "@/lib/types";
 import { ChainMark } from "./ChainMark";
@@ -24,6 +24,7 @@ export function ChainPicker({
 }) {
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState<string>();
+  const chainOf = useChains();
 
   async function pick(chain: string) {
     setBusy(chain);
@@ -82,7 +83,7 @@ export function ChainPicker({
                 <ChainMark chain={option.chain} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium">
-                    {chainInfo(option.chain).name}
+                    {chainOf(option.chain).name}
                   </span>
                   <span className="block text-xs text-muted">
                     {option.anyToken

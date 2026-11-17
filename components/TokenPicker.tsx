@@ -2,22 +2,11 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, getTokens } from "@/lib/api";
-import { chainInfo } from "@/lib/chains";
+import { useChains } from "@/lib/catalog";
 import type { SuggestedToken } from "@/lib/types";
 import { ChainMark } from "./ChainMark";
+import { TokenMark } from "./TokenMark";
 import { Button, Icon, Spinner } from "./ui";
-
-/** A token's mark: its symbol's first letters, drawn here, never fetched. */
-function TokenMark({ symbol }: { symbol: string }) {
-  return (
-    <span
-      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface font-semibold text-[11px] text-ink-soft ring-1 ring-line"
-      aria-hidden="true"
-    >
-      {symbol.slice(0, 4).toUpperCase()}
-    </span>
-  );
-}
 
 /** "Stablecoin", "Native coin", or nothing, under a token's name. */
 function kindOf(token: SuggestedToken): string | undefined {
@@ -49,7 +38,7 @@ export function TokenPicker({
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState<string>();
   const [pasted, setPasted] = useState("");
-  const network = chainInfo(chain).name;
+  const network = useChains()(chain).name;
 
   useEffect(() => {
     let live = true;
@@ -135,7 +124,7 @@ export function TokenPicker({
                 onClick={() => pick(token.mint)}
                 className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left ring-1 ring-line transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <TokenMark symbol={token.symbol} />
+                <TokenMark chain={chain} token={token} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium">
                     {token.symbol}{" "}
